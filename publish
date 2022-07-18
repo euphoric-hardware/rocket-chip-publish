@@ -1,0 +1,70 @@
+#!/usr/bin/env python
+
+import subprocess
+import fileinput
+import sys
+
+def run_cmd(cmd: str, cwd: str = "./") -> subprocess.CompletedProcess:
+    print(f"running {cmd}")
+    result = subprocess.run(cmd, shell=True, stdout=sys.stdout, stderr=subprocess.STDOUT, cwd=cwd)
+    assert result.returncode == 0, f"{cmd} failed with returncode {result.returncode}"
+    return result
+
+def run_cmd_capture(cmd: str, cwd: str = "./") -> subprocess.CompletedProcess:
+    print(f"running {cmd}")
+    result = subprocess.run(cmd, shell=True, capture_output=True, cwd=cwd)
+    assert result.returncode == 0, f"{cmd} failed with returncode {result.returncode} and stdout {result.stdout.decode('UTF-8')}"
+    return result
+
+if __name__ == "__main__":
+    # clone rocket and its submodules
+    run_cmd("git clone https://github.com/chipsalliance/rocket-chip.git")
+
+    # if a specific rocket-chip hash is requested, check it out
+    if len(sys.argv) == 2:
+        rc_hash = sys.argv[1]
+        run_cmd(f"git checkout ${rc_hash}", cwd="./rocket-chip")
+
+    # TODO: check that this rocket version isn't already published to sonatype snapshots
+
+    # clone rocket submodules
+    run_cmd("git submodule update --init api-config-chipsalliance hardfloat", cwd="./rocket-chip")
+
+    # patch build.properties to bump sbt version that works with Java 18
+    run_cmd("git apply --directory rocket-chip build.properties.patch")
+
+    # patch plugins.sbt to add ci-release plugin
+    run_cmd("git apply --directory rocket-chip plugins.sbt.patch")
+
+    # patch out the version definition in hardfloat's build.sbt
+    #   the versions of all rocket subprojects (api-config-chipsalliance / CDE, hardfloat, rocket-macros)
+    #   are forced to the rocket version
+    run_cmd("git apply --directory rocket-chip/hardfloat hardfloat-build.sbt.patch")
+
+    # patch build.sbt
+    #   reenable publishing of rocket subprojects
+    #   publish all subprojects when publishing rocket (aggregate)
+    run_cmd("git apply --directory rocket-chip build.sbt.patch")
+
+    # construct the rocket-chip version as 1.{chisel minor version}-{rc hash}-SNAPSHOT
+    with open('rocket-chip/build.sbt', 'r') as f:
+        rc_sbt = f.readlines()
+
+    chisel_version_str = [x for x in rc_sbt if 'chiselVersion =' in x]
+    assert len(chisel_version_str) == 1
+    chisel_version_str = chisel_version_str[0].strip()
+    chisel_version = chisel_version_str.split('"')[1]
+    chisel_minor_version = chisel_version.split('.')[1]
+
+    git_hash_cmd = run_cmd_capture("git rev-parse --short HEAD", cwd="./rocket-chip")
+
+    rc_version = f"1.{chisel_minor_version}-{git_hash_cmd.stdout.decode('UTF-8').strip()}-SNAPSHOT"
+
+    # manually patch build.sbt with the rocket-chip version
+    #   using sbt-dynver is an option, but since we have to patch things inside rocket-chip,
+    #   it will mark the repo as dirty when computing the version, which is undesirable
+    for line in fileinput.input('rocket-chip/build.sbt', inplace=True):
+        if "version" in line and "SNAPSHOT" in line:
+            print(f"  version := \"{rc_version}\",\n", end='')
+        else:
+            print(line, end='')

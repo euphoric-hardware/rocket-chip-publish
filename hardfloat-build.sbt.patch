@@ -1,0 +1,12 @@
+diff --git a/build.sbt b/build.sbt
+index 489e908..077ae48 100644
+--- a/build.sbt
++++ b/build.sbt
+@@ -1,6 +1,6 @@
+ organization := "edu.berkeley.cs"
+ 
+-version := "1.5-SNAPSHOT"
++//version := "1.5-SNAPSHOT"
+ 
+ name := "hardfloat"
+ 

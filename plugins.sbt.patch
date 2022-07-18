@@ -1,0 +1,10 @@
+diff --git a/project/plugins.sbt b/project/plugins.sbt
+index 3a4c48986..be55b605b 100644
+--- a/project/plugins.sbt
++++ b/project/plugins.sbt
+@@ -19,3 +19,5 @@ addSbtPlugin("org.scalameta" % "sbt-mdoc" % "2.2.5" )
+ addSbtPlugin("ch.epfl.scala" % "sbt-scalafix" % "0.9.34")
+ 
+ addSbtPlugin("com.eed3si9n" % "sbt-assembly" % "0.15.0")
++
++addSbtPlugin("com.github.sbt" % "sbt-ci-release" % "1.5.10")
