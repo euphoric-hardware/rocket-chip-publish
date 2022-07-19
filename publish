@@ -68,3 +68,6 @@ if __name__ == "__main__":
             print(f"  version := \"{rc_version}\",\n", end='')
         else:
             print(line, end='')
+
+    run_cmd("sbt -Dsbt.supershell=false ci-release", cwd="./rocket-chip")
+    sys.exit(0)
