@@ -65,7 +65,9 @@ if __name__ == "__main__":
     run_cmd("git apply --directory rocket-chip build.properties.patch")
 
     # patch plugins.sbt to add ci-release plugin
-    run_cmd("git apply --directory rocket-chip plugins.sbt.patch")
+    with open("rocket-chip/project/plugins.sbt", "a") as f:
+        f.write('\n')
+        f.write('addSbtPlugin("com.github.sbt" % "sbt-ci-release" % "1.5.10")')
 
     # patch out the version definition in hardfloat's build.sbt
     #   the versions of all rocket subprojects (api-config-chipsalliance / CDE, hardfloat, rocket-macros)
