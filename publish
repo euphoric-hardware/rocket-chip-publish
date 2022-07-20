@@ -3,6 +3,7 @@
 import subprocess
 import fileinput
 import sys
+import urllib.request
 
 def run_cmd(cmd: str, cwd: str = "./") -> subprocess.CompletedProcess:
     print(f"running {cmd}")
@@ -25,7 +26,37 @@ if __name__ == "__main__":
         rc_hash = sys.argv[1]
         run_cmd(f"git checkout ${rc_hash}", cwd="./rocket-chip")
 
-    # TODO: check that this rocket version isn't already published to sonatype snapshots
+    # construct the rocket-chip version as 1.{chisel minor version}-{rc hash}-SNAPSHOT
+    with open('rocket-chip/build.sbt', 'r') as f:
+        rc_sbt = f.readlines()
+
+    chisel_version_str = [x for x in rc_sbt if 'chiselVersion =' in x]
+    assert len(chisel_version_str) == 1
+    chisel_version_str = chisel_version_str[0].strip()
+    chisel_version = chisel_version_str.split('"')[1]
+    chisel_minor_version = chisel_version.split('.')[1]
+
+    git_hash_cmd = run_cmd_capture("git rev-parse --short HEAD", cwd="./rocket-chip")
+
+    rc_version = f"1.{chisel_minor_version}-{git_hash_cmd.stdout.decode('UTF-8').strip()}-SNAPSHOT"
+
+    # check that this rocket version isn't already published to sonatype snapshots
+    try:
+        urllib.request.urlopen(f"https://oss.sonatype.org/content/repositories/snapshots/edu/berkeley/cs/rocketchip_2.12/{rc_version}/").read()
+    except urllib.error.HTTPError as e:
+        # Return code error (e.g. 404, 501, ...)
+        assert e.code == 404, f"Sonatype URL GET returned something other than 200/404 {url} -> {e.code}"
+        already_published = False
+    except urllib.error.URLError as e:
+        # Not an HTTP-specific error (e.g. connection refused)
+        print('URLError: {}'.format(e.reason))
+        sys.exit(1)
+    else:
+        already_published = True
+
+    if already_published:
+        print(f"Version {rc_version} is already published - exiting")
+        sys.exit(0)
 
     # clone rocket submodules
     run_cmd("git submodule update --init api-config-chipsalliance hardfloat", cwd="./rocket-chip")
@@ -45,20 +76,6 @@ if __name__ == "__main__":
     #   reenable publishing of rocket subprojects
     #   publish all subprojects when publishing rocket (aggregate)
     run_cmd("git apply --directory rocket-chip build.sbt.patch")
-
-    # construct the rocket-chip version as 1.{chisel minor version}-{rc hash}-SNAPSHOT
-    with open('rocket-chip/build.sbt', 'r') as f:
-        rc_sbt = f.readlines()
-
-    chisel_version_str = [x for x in rc_sbt if 'chiselVersion =' in x]
-    assert len(chisel_version_str) == 1
-    chisel_version_str = chisel_version_str[0].strip()
-    chisel_version = chisel_version_str.split('"')[1]
-    chisel_minor_version = chisel_version.split('.')[1]
-
-    git_hash_cmd = run_cmd_capture("git rev-parse --short HEAD", cwd="./rocket-chip")
-
-    rc_version = f"1.{chisel_minor_version}-{git_hash_cmd.stdout.decode('UTF-8').strip()}-SNAPSHOT"
 
     # manually patch build.sbt with the rocket-chip version
     #   using sbt-dynver is an option, but since we have to patch things inside rocket-chip,
