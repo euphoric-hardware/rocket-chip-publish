@@ -5,6 +5,12 @@ name: Publish rocket-chip on Sonatype snapshots
       - main
   schedule:
     - cron: '30 * * * *'
+  workflow_dispatch:
+    inputs:
+      rcHash:
+        description: 'Hash of rocket-chip commit to publish, default = empty = publish HEAD of master'
+        required: true
+        default: ''
 jobs:
   publish:
     runs-on: ubuntu-20.04
@@ -13,7 +19,7 @@ jobs:
       - uses: olafurpg/setup-scala@v13
         with:
           java-version: openjdk@1.17
-      - run: ./publish
+      - run: ./publish ${{ github.event.inputs.rcHash }}
         env:
           PGP_PASSPHRASE: ${{ secrets.PGP_PASSPHRASE }}
           PGP_SECRET: ${{ secrets.PGP_SECRET }}
