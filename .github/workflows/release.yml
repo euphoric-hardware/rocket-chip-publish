@@ -1,10 +1,10 @@
 name: Publish rocket-chip on Sonatype snapshots
-on:
+'on':
   push:
-    branches: [master, main]
-    tags: ["*"]
+    branches:
+      - main
   schedule:
-    - cron: '0 * * * *'
+    - cron: '30 * * * *'
 jobs:
   publish:
     runs-on: ubuntu-20.04
