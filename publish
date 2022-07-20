@@ -22,9 +22,9 @@ if __name__ == "__main__":
     run_cmd("git clone https://github.com/chipsalliance/rocket-chip.git")
 
     # if a specific rocket-chip hash is requested, check it out
-    if len(sys.argv) == 2:
+    if len(sys.argv) == 2 and sys.argv[1]:
         rc_hash = sys.argv[1]
-        run_cmd(f"git checkout ${rc_hash}", cwd="./rocket-chip")
+        run_cmd(f"git checkout {rc_hash}", cwd="./rocket-chip")
 
     # construct the rocket-chip version as 1.{chisel minor version}-{rc hash}-SNAPSHOT
     with open('rocket-chip/build.sbt', 'r') as f:
