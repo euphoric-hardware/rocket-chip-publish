@@ -4,48 +4,41 @@ import subprocess
 import fileinput
 import sys
 import urllib.request
+from pathlib import Path
 
-def run_cmd(cmd: str, cwd: str = "./") -> subprocess.CompletedProcess:
-    print(f"running {cmd}")
-    result = subprocess.run(cmd, shell=True, stdout=sys.stdout, stderr=subprocess.STDOUT, cwd=cwd)
-    assert result.returncode == 0, f"{cmd} failed with returncode {result.returncode}"
-    return result
+from helpers import run_cmd, run_cmd_capture, mill_sc_version, \
+        get_new_version, replace_version_rc, replace_version_libs
 
-def run_cmd_capture(cmd: str, cwd: str = "./") -> subprocess.CompletedProcess:
-    print(f"running {cmd}")
-    result = subprocess.run(cmd, shell=True, capture_output=True, cwd=cwd)
-    assert result.returncode == 0, f"{cmd} failed with returncode {result.returncode} and stdout {result.stdout.decode('UTF-8')}"
-    return result
 
 if __name__ == "__main__":
+    cwd = Path.cwd()
+
     # clone rocket and its submodules
-    run_cmd("git clone https://github.com/chipsalliance/rocket-chip.git")
+    run_cmd("git clone https://github.com/chipsalliance/rocket-chip.git", cwd=cwd)
+
+    rc_repo = cwd / "rocket-chip"
+    assert rc_repo.exists()
+    assert rc_repo.is_dir()
 
     # if a specific rocket-chip hash is requested, check it out
     if len(sys.argv) == 2 and sys.argv[1]:
         rc_hash = sys.argv[1]
-        run_cmd(f"git checkout {rc_hash}", cwd="./rocket-chip")
+        run_cmd(f"git checkout {rc_hash}", cwd=rc_repo)
+    else:
+        # Master is the branch used for publishing, dev might break frequently
+        run_cmd(f"git checkout master", cwd=rc_repo)
 
-    # construct the rocket-chip version as 1.{chisel minor version}-{rc hash}-SNAPSHOT
-    with open('rocket-chip/build.sbt', 'r') as f:
-        rc_sbt = f.readlines()
-
-    chisel_version_str = [x for x in rc_sbt if 'chiselVersion =' in x]
-    assert len(chisel_version_str) == 1
-    chisel_version_str = chisel_version_str[0].strip()
-    chisel_version = chisel_version_str.split('"')[1]
-    chisel_minor_version = chisel_version.split('.')[1]
-
-    git_hash_cmd = run_cmd_capture("git rev-parse --short HEAD", cwd="./rocket-chip")
-
-    rc_version = f"1.{chisel_minor_version}-{git_hash_cmd.stdout.decode('UTF-8').strip()}-SNAPSHOT"
+    rc_mill_sc = (rc_repo / "common.sc").read_text().split('\n')
+    rc_version = mill_sc_version(rc_mill_sc)
+    git_hash = run_cmd_capture("git rev-parse --short HEAD", cwd=rc_repo)
+    new_version = get_new_version(git_hash, rc_version)
 
     # check that this rocket version isn't already published to sonatype snapshots
     try:
-        urllib.request.urlopen(f"https://oss.sonatype.org/content/repositories/snapshots/edu/berkeley/cs/rocketchip_2.12/{rc_version}/").read()
+        urllib.request.urlopen(f"https://oss.sonatype.org/content/repositories/snapshots/edu/berkeley/cs/rocketchip_2.13/{new_version}/").read()
     except urllib.error.HTTPError as e:
         # Return code error (e.g. 404, 501, ...)
-        assert e.code == 404, f"Sonatype URL GET returned something other than 200/404 {url} -> {e.code}"
+        assert e.code == 404, f"Sonatype URL GET returned something other than 200/404 {e.url} -> {e.code}"
         already_published = False
     except urllib.error.URLError as e:
         # Not an HTTP-specific error (e.g. connection refused)
@@ -55,38 +48,26 @@ if __name__ == "__main__":
         already_published = True
 
     if already_published:
-        print(f"Version {rc_version} is already published - exiting")
+        print(f"Version {new_version} is already published - exiting")
         sys.exit(0)
 
     # clone rocket submodules
-    run_cmd("git submodule update --init api-config-chipsalliance hardfloat", cwd="./rocket-chip")
+    run_cmd("git submodule update --init cde hardfloat", cwd=rc_repo)
 
-    # patch build.properties to bump sbt version that works with Java 18
-    run_cmd("git apply --directory rocket-chip build.properties.patch")
+    # Patch common.sc with the desired rocket-chip version
+    (rc_repo / "common.sc").write_text('\n'.join(replace_version_rc(rc_mill_sc, new_version)))
 
-    # patch plugins.sbt to add ci-release plugin
-    with open("rocket-chip/project/plugins.sbt", "a") as f:
-        f.write('\n')
-        f.write('addSbtPlugin("com.github.sbt" % "sbt-ci-release" % "1.5.10")')
+    # Patch hardfloat/build.sc and cde/build.sc with the matching version
+    #   the versions of all rocket subprojects (cde, hardfloat, rocket-macros) are forced to the rocket version
+    for path in [(rc_repo / "hardfloat" / "build.sc"), (rc_repo / "cde" / "build.sc")]:
+        sc_str = path.read_text().split('\n')
+        path.write_text('\n'.join(replace_version_libs(sc_str, new_version)))
 
-    # patch out the version definition in hardfloat's build.sbt
-    #   the versions of all rocket subprojects (api-config-chipsalliance / CDE, hardfloat, rocket-macros)
-    #   are forced to the rocket version
-    run_cmd("git apply --directory rocket-chip/hardfloat hardfloat-build.sbt.patch")
-
-    # patch build.sbt
-    #   reenable publishing of rocket subprojects
-    #   publish all subprojects when publishing rocket (aggregate)
-    run_cmd("git apply --directory rocket-chip build.sbt.patch")
-
-    # manually patch build.sbt with the rocket-chip version
-    #   using sbt-dynver is an option, but since we have to patch things inside rocket-chip,
-    #   it will mark the repo as dirty when computing the version, which is undesirable
-    for line in fileinput.input('rocket-chip/build.sbt', inplace=True):
-        if "version" in line and "SNAPSHOT" in line:
-            print(f"  version := \"{rc_version}\",\n", end='')
-        else:
-            print(line, end='')
-
-    run_cmd("sbt -Dsbt.supershell=false ci-release", cwd="./rocket-chip")
+    run_cmd("echo $PGP_SECRET | base64 --decode > gpg_key", cwd=cwd)
+    run_cmd("gpg --import --no-tty --batch --yes gpg_key", cwd=cwd)
+    run_cmd("rm gpg_key", cwd=cwd)
+    for project in ["rocketchip", "hardfloat", "cde", "rocketchip.macros"]:
+        run_cmd(f"mill mill.scalalib.PublishModule/publishAll --publishArtifacts {project}.publishArtifacts --sonatypeCreds $SONATYPE_USERNAME:$SONATYPE_PASSWORD --gpgArgs --passphrase=$PGP_PASSPHRASE,--batch,-a,-b,--pinentry-mode,loopback,--no-tty,--yes", cwd=rc_repo)
+    # run_cmd("sbt -Dsbt.supershell=false ci-release", cwd="./rocket-chip")
     sys.exit(0)
+
