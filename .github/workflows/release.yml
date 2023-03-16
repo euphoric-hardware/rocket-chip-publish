@@ -19,6 +19,9 @@ jobs:
       - uses: olafurpg/setup-scala@v13
         with:
           java-version: openjdk@1.17
+      - uses: jodersky/setup-mill@master
+        with:
+          mill-version: 0.10.11
       - run: ./publish ${{ github.event.inputs.rcHash }}
         env:
           PGP_PASSPHRASE: ${{ secrets.PGP_PASSPHRASE }}
