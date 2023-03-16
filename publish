@@ -66,8 +66,8 @@ if __name__ == "__main__":
     run_cmd("echo $PGP_SECRET | base64 --decode > gpg_key", cwd=cwd)
     run_cmd("gpg --import --no-tty --batch --yes gpg_key", cwd=cwd)
     run_cmd("rm gpg_key", cwd=cwd)
-    for project in ["rocketchip", "hardfloat", "cde", "rocketchip.macros"]:
+
+    for project in ["rocketchip", "hardfloat", "cdeRocket", "rocketchip.macros"]:
         run_cmd(f"mill mill.scalalib.PublishModule/publishAll --publishArtifacts {project}.publishArtifacts --sonatypeCreds $SONATYPE_USERNAME:$SONATYPE_PASSWORD --gpgArgs --passphrase=$PGP_PASSPHRASE,--batch,-a,-b,--pinentry-mode,loopback,--no-tty,--yes", cwd=rc_repo)
-    # run_cmd("sbt -Dsbt.supershell=false ci-release", cwd="./rocket-chip")
     sys.exit(0)
 
