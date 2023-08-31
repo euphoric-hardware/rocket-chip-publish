@@ -22,9 +22,10 @@ jobs:
       - name: Clone rocket-chip
         run: git clone https://github.com/chipsalliance/rocket-chip.git
       - uses: jodersky/setup-mill@master
-        working-directory: ./rocket-chip
         with:
           mill-version: 0.11.1
+        run:
+          working-directory: ./rocket-chip
       - run: ./publish ${{ github.event.inputs.rcHash }}
         env:
           PGP_PASSPHRASE: ${{ secrets.PGP_PASSPHRASE }}
