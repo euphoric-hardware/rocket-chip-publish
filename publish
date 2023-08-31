@@ -13,9 +13,6 @@ from helpers import run_cmd, run_cmd_capture, mill_sc_version, \
 if __name__ == "__main__":
     cwd = Path.cwd()
 
-    # clone rocket and its submodules
-    run_cmd("git clone https://github.com/chipsalliance/rocket-chip.git", cwd=cwd)
-
     rc_repo = cwd / "rocket-chip"
     assert rc_repo.exists()
     assert rc_repo.is_dir()
