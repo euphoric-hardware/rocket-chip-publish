@@ -28,7 +28,7 @@ if __name__ == "__main__":
         # Master is the branch used for publishing, dev might break frequently
         run_cmd(f"git checkout master", cwd=rc_repo)
 
-    rc_mill_sc = (rc_repo / "common.sc").read_text().split('\n')
+    rc_mill_sc = (rc_repo / "build.sc").read_text().split('\n')
     rc_version = mill_sc_version(rc_mill_sc)
     git_hash = run_cmd_capture("git rev-parse --short HEAD", cwd=rc_repo)
     new_version = get_new_version(git_hash, rc_version)

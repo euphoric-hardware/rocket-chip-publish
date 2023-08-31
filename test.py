@@ -4,25 +4,24 @@ from helpers import mill_sc_version, get_new_version, replace_version_rc, replac
 
 class Test:
     sc_snippet = """
-  def publishVersion = T {
-    "1.6.0"
-  }
+  override def publishVersion: T[String] = T("1.6-SNAPSHOT")
+""".split('\n')
+    sc_snippet2 = """
+  override def publishVersion: T[String] = T("1.6.5")
 """.split('\n')
     bad_snippet = """
     override def publishVersion = T {
       m.publishVersion()
     }
 """.split('\n')
-    snapshot_snippet = """
+    bad_snippet2 = """
   def publishVersion = T {
     "1.2.0-SNAPSHOT"
   }
 """.split('\n')
 
     patched_sc_snippet = """
-  def publishVersion = T {
-"1.8.0-ff-SNAPSHOT"
-  }
+override def publishVersion: T[String] = T("1.8.0-ff-SNAPSHOT")
 """.split('\n')
 
     lib_snippet = """
@@ -38,16 +37,20 @@ def publishVersion = "1.8.0-ff-SNAPSHOT"
 
     def test_mill_sc_version(self) -> None:
         version = mill_sc_version(self.sc_snippet)
-        assert version == "1.6.0"
+        assert version == "1.6"
+
+        version = mill_sc_version(self.sc_snippet2)
+        assert version == "1.6.5"
 
         with pytest.raises(ValueError):
             mill_sc_version(self.bad_snippet)
 
         with pytest.raises(ValueError):
-            mill_sc_version(self.snapshot_snippet)
+            mill_sc_version(self.bad_snippet2)
 
     def test_new_version(self) -> None:
         assert get_new_version("32e2bfcce", "1.6.0") == "1.6.0-32e2bfcce-SNAPSHOT"
+        assert get_new_version("32e2bfcce", "1.6") == "1.6-32e2bfcce-SNAPSHOT"
 
     def test_replace_version_rc(self) -> None:
         assert replace_version_rc(self.sc_snippet, "1.8.0-ff-SNAPSHOT") == \

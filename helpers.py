@@ -20,7 +20,7 @@ def run_cmd_capture(cmd: str, cwd: Path) -> str:
     assert result.returncode == 0, f"{cmd} failed with returncode {result.returncode} and stdout {stdout}"
     return stdout
 
-version_re = re.compile(r'^\s*def publishVersion = T {')
+version_re = re.compile(r'^\s*override def publishVersion: T\[String\] = T\(')
 lib_version_re = re.compile(r'^\s*def publishVersion = ')
 
 def mill_sc_version(sc: List[str]) -> str:
@@ -28,10 +28,12 @@ def mill_sc_version(sc: List[str]) -> str:
         if 'Version' in line:
             match = version_re.match(line)
             if match is not None:
-                version_str = sc[idx+1]
-                version = version_str.strip()[1:-1]
+                version_str = sc[idx]
+                version_split = version_str.split('"')
+                version = version_split[1]
                 if any([x in version for x in ("SNAPSHOT", "-")]):
-                    raise ValueError("rocket-chip version is a SNAPSHOT")
+                    # raise ValueError("rocket-chip version is a SNAPSHOT")
+                    return version.split('-')[0]
                 return version
     raise ValueError("version not found in rocket-chip's build.sc")
 
@@ -41,16 +43,16 @@ def get_new_version(git_hash: str, rc_version: str) -> str:
 
 def replace_version_rc(sc: List[str], new_version: str) -> List[str]:
     new_sc: List[str] = []
-    just_saw_version_line = False
+    #just_saw_version_line = False
     for line in sc:
         if "Version" in line and version_re.match(line) is not None:
-            just_saw_version_line = True
-            new_sc.append(line)
-            continue
-        elif just_saw_version_line:
-            new_sc.append(f'"{new_version}"')
-            just_saw_version_line = False
-            continue
+            # just_saw_version_line = True
+            new_sc.append(f"override def publishVersion: T[String] = T(\"{new_version}\")")
+            # continue
+        # elif just_saw_version_line:
+        #     new_sc.append(f'"{new_version}"')
+        #     just_saw_version_line = False
+        #     continue
         else:
             new_sc.append(line)
     return new_sc
