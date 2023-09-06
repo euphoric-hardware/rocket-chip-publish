@@ -26,7 +26,10 @@ if __name__ == "__main__":
         run_cmd(f"git checkout master", cwd=rc_repo)
 
     # Patch the rocket-chip build.sc with the versioning hacks and change org to edu.berkeley.cs
-    run_cmd("git apply rocket-chip.patch --directory rocket-chip/", cwd=cwd)
+    run_cmd("git apply rocket-chip.patch --directory rocket-chip", cwd=cwd)
+    # clone rocket submodules
+    run_cmd("git submodule update --init cde hardfloat", cwd=rc_repo)
+
     rc_500_version = run_cmd_capture("mill show rocketchip[5.0.0].publishVersion", cwd=rc_repo)
     rc_360_version = run_cmd_capture("mill show rocketchip[3.6.0].publishVersion", cwd=rc_repo)
     print(rc_500_version, rc_360_version)
@@ -53,9 +56,6 @@ if __name__ == "__main__":
     if check_if_published(rc_360_version):
         print(f"Version {rc_360_version} is already published - exiting")
         sys.exit(0)
-
-    # clone rocket submodules
-    run_cmd("git submodule update --init cde hardfloat", cwd=rc_repo)
 
     run_cmd("echo $PGP_SECRET | base64 --decode > gpg_key", cwd=cwd)
     run_cmd("gpg --import --no-tty --batch --yes gpg_key", cwd=cwd)
