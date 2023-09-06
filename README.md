@@ -8,8 +8,9 @@ This can be undesirable in cases where you just want to use components of rocket
 This repo contains a simple publishing script and Github Actions workflow to publish rocket-chip to Sonatype snapshots.
 It runs on an hourly timer, looks for new commits to rocket-chip, and publishes a new version to Sonatype when an update to rocket-chip/master is seen.
 
-The published snapshots are enumerated here [snapshots:edu/berkeley/cs/rocketchip_2.13](https://oss.sonatype.org/content/repositories/snapshots/edu/berkeley/cs/rocketchip_2.13/)
-The version of each snapshot is `version in rocket-chip's common.sc`-`git hash of rocket-chip commit`-`SNAPSHOT`.
+Rocket-chip is published against multiple Chisel versions and Scala 2.13.
+See the published snapshots for [Chisel 5.0.0](https://oss.sonatype.org/content/repositories/snapshots/edu/berkeley/cs/rocketchip-5.0.0_2.13/) and [Chisel 3.6.0](https://oss.sonatype.org/content/repositories/snapshots/edu/berkeley/cs/rocketchip-3.6.0_2.13/).
+The version of each snapshot is `version in rocket-chip's build.sc`-`chisel version`-`git hash of rocket-chip commit`-`SNAPSHOT`.
 
 To use a snapshot, add this snippet to your `build.sbt`:
 ```sbt
@@ -19,7 +20,7 @@ resolvers ++= Seq(
     Resolver.mavenLocal
 )
 
-libraryDependencies ++= Seq("edu.berkeley.cs" %% "rocketchip" % "1.6.0-4fbd2f238-SNAPSHOT")
+libraryDependencies ++= Seq("edu.berkeley.cs" %% "rocketchip-3.6.0" % "1.6-3.6.0-50adbdb3e-SNAPSHOT")
 ```
 
 - Why publish snapshots instead of versioned releases?
@@ -27,4 +28,4 @@ libraryDependencies ++= Seq("edu.berkeley.cs" %% "rocketchip" % "1.6.0-4fbd2f238
 - Why is the publishing scripting sitting outside rocket-chip?
     - It may be integrated into rocket-chip once proven useful.
 - How are rocket-chip's subprojects (hardfloat, api-config-chipsalliance, rocket-macros) versioned?
-    - They are published as snapshots with the same version as rocket-chip. Each rocket-chip snapshot uses published snapshot versions of the subprojects (with the exact same version string). [See this .pom](https://oss.sonatype.org/content/repositories/snapshots/edu/berkeley/cs/rocketchip_2.13/1.6.0-4fbd2f238-SNAPSHOT/rocketchip_2.13-1.6.0-4fbd2f238-SNAPSHOT.pom) as an example.
+    - They are published as snapshots with the same version as rocket-chip. Each rocket-chip snapshot uses published snapshot versions of the subprojects (with the exact same version string). [See this .pom](https://oss.sonatype.org/content/repositories/snapshots/edu/berkeley/cs/rocketchip-3.6.0_2.13/1.6-3.6.0-50adbdb3e-SNAPSHOT/rocketchip-3.6.0_2.13-1.6-3.6.0-50adbdb3e-SNAPSHOT.pom) as an example.
