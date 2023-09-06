@@ -35,9 +35,9 @@ if __name__ == "__main__":
     print(rc_500_version, rc_360_version)
 
     # check that this rocket version isn't already published to sonatype snapshots
-    def check_if_published(version: str) -> bool:
+    def check_if_published(version: str, chiselVersion: str) -> bool:
         try:
-            urllib.request.urlopen(f"https://oss.sonatype.org/content/repositories/snapshots/edu/berkeley/cs/rocketchip_2.13/{version}/").read()
+            urllib.request.urlopen(f"https://oss.sonatype.org/content/repositories/snapshots/edu/berkeley/cs/rocketchip-{chiselVersion}_2.13/{version}/").read()
         except urllib.error.HTTPError as e:
             # Return code error (e.g. 404, 501, ...)
             assert e.code == 404, f"Sonatype URL GET returned something other than 200/404 {e.url} -> {e.code}"
@@ -49,11 +49,11 @@ if __name__ == "__main__":
         else:
             return True
 
-    if check_if_published(rc_500_version):
+    if check_if_published(rc_500_version, "5.0.0"):
         print(f"Version {rc_500_version} is already published - exiting")
         sys.exit(0)
 
-    if check_if_published(rc_360_version):
+    if check_if_published(rc_360_version, "3.6.0"):
         print(f"Version {rc_360_version} is already published - exiting")
         sys.exit(0)
 
