@@ -1,0 +1,65 @@
+diff --git a/build.sc b/build.sc
+index bfd9eb3e0..314f0337b 100644
+--- a/build.sc
++++ b/build.sc
+@@ -18,6 +18,16 @@ object v {
+   val scalaReflect = ivy"org.scala-lang:scala-reflect:${scala}"
+ }
+ 
++object GitPublishVersion {
++  def publishVersion(cross: Option[String], nominalPublishVersion: String): String = {
++      val versionSansSnapshot = nominalPublishVersion.split('-').head
++      val gitHashCmd = os.proc("git", "rev-parse", "--short", "HEAD").call()
++      val gitHash = gitHashCmd.out.text().trim()
++      val crossFragment = cross.map{ c => "-" + c }.getOrElse("")
++      versionSansSnapshot + crossFragment + "-" + gitHash + "-SNAPSHOT"
++  }
++}
++
+ object macros extends Macros
+ 
+ trait Macros
+@@ -28,6 +38,8 @@ trait Macros
+   def scalaVersion: T[String] = T(v.scala)
+ 
+   def scalaReflectIvy = v.scalaReflect
++
++  override def publishVersion: T[String] = T(GitPublishVersion.publishVersion(None, super.publishVersion()))
+ }
+ 
+ object hardfloat extends mill.define.Cross[Hardfloat](v.chiselCrossVersions.keys.toSeq)
+@@ -48,6 +60,8 @@ trait Hardfloat
+   def chiselIvy = Some(v.chiselCrossVersions(crossValue)._1)
+ 
+   def chiselPluginIvy = Some(v.chiselCrossVersions(crossValue)._2)
++
++  override def publishVersion: T[String] = T(GitPublishVersion.publishVersion(Some(crossValue), super.publishVersion()))
+ }
+ 
+ object cde extends CDE
+@@ -60,6 +74,8 @@ trait CDE
+   def scalaVersion: T[String] = T(v.scala)
+ 
+   override def millSourcePath = os.pwd / "cde" / "cde"
++
++  override def publishVersion: T[String] = T(GitPublishVersion.publishVersion(None, super.publishVersion()))
+ }
+ 
+ object rocketchip extends Cross[RocketChip](v.chiselCrossVersions.keys.toSeq)
+@@ -90,13 +106,15 @@ trait RocketChip
+   def mainargsIvy = v.mainargs
+ 
+   def json4sJacksonIvy = v.json4sJackson
++
++  override def publishVersion: T[String] = T(GitPublishVersion.publishVersion(Some(crossValue), super.publishVersion()))
+ }
+ 
+ trait RocketChipPublishModule
+   extends PublishModule {
+   def pomSettings = PomSettings(
+     description = artifactName(),
+-    organization = "org.chipsalliance",
++    organization = "edu.berkeley.cs",
+     url = "http://github.com/chipsalliance/rocket-chip",
+     licenses = Seq(License.`Apache-2.0`),
+     versionControl = VersionControl.github("chipsalliance", "rocket-chip"),

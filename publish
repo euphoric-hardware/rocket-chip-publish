@@ -25,46 +25,45 @@ if __name__ == "__main__":
         # Master is the branch used for publishing, dev might break frequently
         run_cmd(f"git checkout master", cwd=rc_repo)
 
-    rc_mill_sc = (rc_repo / "build.sc").read_text().split('\n')
-    rc_version = mill_sc_version(rc_mill_sc)
-    git_hash = run_cmd_capture("git rev-parse --short HEAD", cwd=rc_repo)
-    new_version = get_new_version(git_hash, rc_version)
+    # Patch the rocket-chip build.sc with the versioning hacks and change org to edu.berkeley.cs
+    run_cmd("git apply rocket-chip.patch --directory rocket-chip/", cwd=cwd)
+    rc_500_version = run_cmd_capture("mill show rocketchip[5.0.0].publishVersion", cwd=rc_repo)
+    rc_360_version = run_cmd_capture("mill show rocketchip[3.6.0].publishVersion", cwd=rc_repo)
+    print(rc_500_version, rc_360_version)
 
     # check that this rocket version isn't already published to sonatype snapshots
-    try:
-        urllib.request.urlopen(f"https://oss.sonatype.org/content/repositories/snapshots/edu/berkeley/cs/rocketchip_2.13/{new_version}/").read()
-    except urllib.error.HTTPError as e:
-        # Return code error (e.g. 404, 501, ...)
-        assert e.code == 404, f"Sonatype URL GET returned something other than 200/404 {e.url} -> {e.code}"
-        already_published = False
-    except urllib.error.URLError as e:
-        # Not an HTTP-specific error (e.g. connection refused)
-        print('URLError: {}'.format(e.reason))
-        sys.exit(1)
-    else:
-        already_published = True
+    def check_if_published(version: str) -> bool:
+        try:
+            urllib.request.urlopen(f"https://oss.sonatype.org/content/repositories/snapshots/edu/berkeley/cs/rocketchip_2.13/{version}/").read()
+        except urllib.error.HTTPError as e:
+            # Return code error (e.g. 404, 501, ...)
+            assert e.code == 404, f"Sonatype URL GET returned something other than 200/404 {e.url} -> {e.code}"
+            return False
+        except urllib.error.URLError as e:
+            # Not an HTTP-specific error (e.g. connection refused)
+            print('URLError: {}'.format(e.reason))
+            sys.exit(1)
+        else:
+            return True
 
-    if already_published:
-        print(f"Version {new_version} is already published - exiting")
+    if check_if_published(rc_500_version):
+        print(f"Version {rc_500_version} is already published - exiting")
+        sys.exit(0)
+
+    if check_if_published(rc_360_version):
+        print(f"Version {rc_360_version} is already published - exiting")
         sys.exit(0)
 
     # clone rocket submodules
     run_cmd("git submodule update --init cde hardfloat", cwd=rc_repo)
 
-    # Patch build.sc with the desired rocket-chip version
-    (rc_repo / "build.sc").write_text('\n'.join(replace_version_rc(rc_mill_sc, new_version)))
-
-    # Patch hardfloat/build.sc and cde/build.sc with the matching version
-    #   the versions of all rocket subprojects (cde, hardfloat, rocket-macros) are forced to the rocket version
-    for path in [(rc_repo / "hardfloat" / "build.sc"), (rc_repo / "cde" / "build.sc")]:
-        sc_str = path.read_text().split('\n')
-        path.write_text('\n'.join(replace_version_libs(sc_str, new_version)))
-
     run_cmd("echo $PGP_SECRET | base64 --decode > gpg_key", cwd=cwd)
     run_cmd("gpg --import --no-tty --batch --yes gpg_key", cwd=cwd)
     run_cmd("rm gpg_key", cwd=cwd)
 
-    for project in ["rocketchip", "hardfloat", "cde", "macros"]:
-        run_cmd(f"mill mill.scalalib.PublishModule/publishAll --publishArtifacts {project}.publishArtifacts --sonatypeCreds $SONATYPE_USERNAME:$SONATYPE_PASSWORD --gpgArgs --passphrase=$PGP_PASSPHRASE,--batch,-a,-b,--pinentry-mode,loopback,--no-tty,--yes", cwd=rc_repo)
+    for project in ["rocketchip[5.0.0]", "rocketchip[3.6.0]", "hardfloat[5.0.0]", "hardfloat[3.6.0]", "cde", "macros"]:
+        run_cmd(f"mill mill.scalalib.PublishModule/publishAll --publishArtifacts {project}.publishArtifacts \
+                --sonatypeCreds $SONATYPE_USERNAME:$SONATYPE_PASSWORD --gpgArgs \
+                --passphrase=$PGP_PASSPHRASE,--batch,-a,-b,--pinentry-mode,loopback,--no-tty,--yes", cwd=rc_repo)
     sys.exit(0)
 
