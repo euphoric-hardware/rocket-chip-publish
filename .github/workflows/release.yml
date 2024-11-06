@@ -26,7 +26,7 @@ jobs:
           mill-version: 0.11.1
       - run: ./publish ${{ github.event.inputs.rcHash }}
         env:
-          PGP_PASSPHRASE: ${{ secrets.PGP_PASSPHRASE }}
-          PGP_SECRET: ${{ secrets.PGP_SECRET }}
-          SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
-          SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
+          PGP_PASSPHRASE: ${{ secrets.MILL_PGP_PASSPHRASE }}
+          PGP_SECRET: ${{ secrets.MILL_PGP_SECRET_BASE64 }}
+          SONATYPE_PASSWORD: ${{ secrets.MILL_SONATYPE_PASSWORD }}
+          SONATYPE_USERNAME: ${{ secrets.MILL_SONATYPE_USERNAME }}

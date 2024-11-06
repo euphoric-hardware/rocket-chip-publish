@@ -28,11 +28,10 @@ if __name__ == "__main__":
     # Patch the rocket-chip build.sc with the versioning hacks and change org to edu.berkeley.cs
     run_cmd("git apply rocket-chip.patch --directory rocket-chip", cwd=cwd)
     # clone rocket submodules
-    run_cmd("git submodule update --init cde hardfloat", cwd=rc_repo)
+    run_cmd("git submodule update --init dependencies/cde dependencies/hardfloat dependencies/diplomacy dependencies/chisel", cwd=rc_repo)
 
-    rc_500_version = run_cmd_capture("mill show rocketchip[5.0.0].publishVersion", cwd=rc_repo)[1:-1]
-    rc_360_version = run_cmd_capture("mill show rocketchip[3.6.0].publishVersion", cwd=rc_repo)[1:-1]
-    print(rc_500_version, rc_360_version)
+    rc_510_version = run_cmd_capture("mill show rocketchip[5.1.0].publishVersion", cwd=rc_repo)[1:-1]
+    print(rc_510_version)
 
     # check that this rocket version isn't already published to sonatype snapshots
     def check_if_published(version: str, chiselVersion: str) -> bool:
@@ -52,21 +51,15 @@ if __name__ == "__main__":
         else:
             sys.exit(2)
 
-    if check_if_published(rc_500_version, "5.0.0"):
-        print(f"Version {rc_500_version} is already published - exiting")
+    if check_if_published(rc_510_version, "5.1.0"):
+        print(f"Version {rc_510_version} is already published - exiting")
         sys.exit(0)
 
-    if check_if_published(rc_360_version, "3.6.0"):
-        print(f"Version {rc_360_version} is already published - exiting")
-        sys.exit(0)
-
-    run_cmd("echo $PGP_SECRET | base64 --decode > gpg_key", cwd=cwd)
+    run_cmd("echo $MILL_GPG_SECRET_BASE64 | base64 --decode > gpg_key", cwd=cwd)
     run_cmd("gpg --import --no-tty --batch --yes gpg_key", cwd=cwd)
     run_cmd("rm gpg_key", cwd=cwd)
 
-    for project in ["rocketchip[5.0.0]", "rocketchip[3.6.0]", "hardfloat[5.0.0]", "hardfloat[3.6.0]", "cde", "macros"]:
-        run_cmd(f"mill mill.scalalib.PublishModule/publishAll --publishArtifacts {project}.publishArtifacts \
-                --sonatypeCreds $SONATYPE_USERNAME:$SONATYPE_PASSWORD --gpgArgs \
-                --passphrase=$PGP_PASSPHRASE,--batch,-a,-b,--pinentry-mode,loopback,--no-tty,--yes", cwd=rc_repo)
+    for project in ["rocketchip[5.1.0]", "hardfloat[5.1.0]", "diplomacy[5.1.0]", "cde", "macros"]:
+        run_cmd(f"mill mill.scalalib.PublishModule/publishAll --publishArtifacts {project}.publishArtifacts", cwd=rc_repo)
     sys.exit(0)
 
